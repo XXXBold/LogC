@@ -305,7 +305,7 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
   }
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
-  if(ptagLog->szMaxFileQueueSize)
+  if(ptagLog->szMaxStorageCount)
   {
     char *pcTmp;
     if(!(pcTmp=malloc(sizeof(TagLogCEntry)+szCurrBufferPos)))
