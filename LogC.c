@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <time.h>
+#include <errno.h>
 #include <limits.h>
 
 #include "LogC.h"
 
-#define LOGC_DATETIME_FORMAT           "%d.%m.%Y-%H:%M:%S "                         /* e.g. 01.02.2018-12:34:56, see strftime() function */
+#define LOGC_DATETIME_FORMAT           "%Y-%m-%d_%H:%M:%S "                         /* e.g. 2018-10-03_12:34:56, see strftime() function */
 #define LOGC_PREFIX_FORMAT_FILEINFO    "[%s]\"%s\"@line %d in function \"%s()\": "  /* e.g. [Error]"myfile.c"@line 123 in function "func()": */
 #define LOGC_PREFIX_FORMAT_NO_FILEINFO "[%s]in function \"%s()\": "                 /* e.g. [Error]in function "func()": */
 
@@ -20,6 +22,18 @@
   #define LOGC_PATH_DELIMITER  '/'
   #define LOGC_LOCALTIME(tTime,tStruct) localtime_r(tTime,tStruct)
 #endif /* _WIN32 */
+
+/* For vsnprintf C99 is needed, or MSC >=1900(VS 15) */
+#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || (defined(_MSC_VER) && (_MSC_VER>=1900))
+  #define LOGC_VSNPRINTF(buf,size,format,arglist) vsnprintf(buf,size,format,arglist)
+#elif defined(_MSC_VER) && (_MSC_VER<1900) /* Win-Specific _vsnprintf in older versions of MSC */
+  #define LOGC_VSNPRINTF(buf,size,format,arglist) (_vsnprintf(buf,size-1,format,arglist)>0)?*((buf)+size)='\0':-1
+#else /* Terminate compilation with an Error, if no vsnprintf is available */
+  #error No vsnprintf or equivalent available!
+  /* Use of !UNSAFE! ANSI-C vsprintf() will work, but can cause buffer overflow!
+     Use at own risk! Or better implement a custom function behaving like vsnprintf(). */
+  #define LOGC_VSNPRINTF(buf,size,format,arglist) vsprintf(buf,format,arglist)
+#endif
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* >= C99 */
   #define INLINE_FCT_LOCAL inline
@@ -140,7 +154,7 @@ TagLog *ptagLogC_New_g(int iLogLevel,
   }
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 
-  szNewLogSize=szMaxEntryLength+1;
+  szNewLogSize=szMaxEntryLength+2; /* +2 for '\n'+'\0' */
   /* Check for Overflow of size_t */
   if(szNewLogSize+sizeof(TagLog)<szMaxEntryLength)
     return(NULL);
@@ -181,7 +195,9 @@ int iLogC_End_g(TagLog *ptagLog)
   if((ptagLog->caLogPath[0]!='\0') && (ptagLog->szCurrentFileQueueSize))
   {
     if(iLogC_WriteEntriesToDisk_g(ptagLog))
+    {
       return(-1);
+    }
   }
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
@@ -205,17 +221,20 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
                           const char *pcFileName,
                           int iLineNr,
                           const char *pcFunction,
-                          const char *pcLogText)
+                          const char *pcLogText,
+                          ...)
 {
   int iRc;
-  size_t szTextLen;
   size_t szCurrBufferPos=0;
+  va_list vaArgs;
   const struct TagLogType *ptagCurrLogType;
 
   if(iLogType<ptagLog->iLogLevel)
     return(0);
   if(!(ptagCurrLogType=ptagLogC_GetLogType_m(iLogType)))
     return(-1);
+
+  /* Check if Timestamp is needed */
   if((ptagLog->uiPrefixOptions&LOGC_PREFIX_TIMESTAMP))
   {
     struct tm tagTime;
@@ -227,6 +246,8 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
                                    &tagTime)))
       return(-1);
   }
+
+  /* Check if Fileinfo is needed */
   if((ptagLog->uiPrefixOptions&LOGC_PREFIX_FILEINFO))
   {
     if(sizeof(LOGC_PREFIX_FORMAT_FILEINFO)+((pcFunction)?strlen(pcFunction):sizeof(LOGC_TEXT_NO_FUNCTION))+strlen(pcFileName)+20>ptagLog->szMaxEntryLength)
@@ -251,29 +272,34 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
     return(-1);
 
   szCurrBufferPos+=iRc;
-  szTextLen=strlen(pcLogText);
-  /* Check for length of Entry */
-  if(szCurrBufferPos+szTextLen>ptagLog->szMaxEntryLength-1)
+  errno=0;
+  va_start(vaArgs,pcLogText);
+  iRc=LOGC_VSNPRINTF(&ptagLog->pcTextBuffer[szCurrBufferPos],
+                     ptagLog->szMaxEntryLength-szCurrBufferPos,
+                     pcLogText,
+                     vaArgs);
+  va_end(vaArgs);
+  if(errno==EINVAL)
+    return(-1);
+
+  /* Check for truncation */
+  if(iRc<1)
   {
-    /* Truncate entry here */
-    memcpy(&ptagLog->pcTextBuffer[szCurrBufferPos],
-           pcLogText,
-           ptagLog->szMaxEntryLength-szCurrBufferPos);
     szCurrBufferPos=ptagLog->szMaxEntryLength;
+    ptagLog->pcTextBuffer[szCurrBufferPos]='\n';
+    ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
   }
   else
   {
-    memcpy(&ptagLog->pcTextBuffer[szCurrBufferPos],
-           pcLogText,
-           szTextLen);
-
-    szCurrBufferPos+=szTextLen;
-    /* Add newline at the end, if not there yet */
+    szCurrBufferPos+=iRc;
+    /* Check if there's already a newline at the end */
     if(ptagLog->pcTextBuffer[szCurrBufferPos-1]!='\n')
-      ++szCurrBufferPos;
+    {
+      ptagLog->pcTextBuffer[szCurrBufferPos]='\n';
+      ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
+    }
   }
-  ptagLog->pcTextBuffer[szCurrBufferPos-1]='\n';
-  ptagLog->pcTextBuffer[szCurrBufferPos]='\0';
+
   switch(ptagCurrLogType->eOutStream)
   {
     case LOGC_STDOUT:
@@ -351,20 +377,25 @@ int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog)
     return(0);
 
   if(!(fp=fopen(ptagLog->caLogPath,"a")))
-    return(-1);
+  {
+    perror("Failed to Open LogFile: ");
+  }
 
   while(ptagLog->szCurrentFileQueueSize)
   {
     if(!(ptagCurrEntry=ptagLogC_FileQueue_Pop_m(ptagLog)))
     {
-      fclose(fp);
+      if(fp)
+        fclose(fp);
       return(-1);
     }
-    fputs(ptagCurrEntry->pcText,fp);
+    if(fp)
+      fputs(ptagCurrEntry->pcText,fp);
     free(ptagCurrEntry);
   }
-  fclose(fp);
-  return(0);
+  if(fp)
+    fclose(fp);
+  return((fp)?0:-1);
 }
 
 INLINE_FCT_LOCAL void vLogc_FileQueue_Push_m(TagLog *ptagLog,
