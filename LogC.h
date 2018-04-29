@@ -1,6 +1,7 @@
 #ifndef LOGC_H_INCLUDED
   #define LOGC_H_INCLUDED
 
+#include <stdarg.h>
 #include <limits.h>
 
 #define LOGC_FEATURE_ENABLE_LOGFILE     /* Enable this option if you want to log to a file */
@@ -25,8 +26,26 @@ enum ELogPrefix
 };
 
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
-#define LOGC_STORAGE_MAX SIZE_MAX
+  #define LOGC_STORAGE_MAX SIZE_MAX
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
+
+/* Check for optional variadic macro extension (##__VA_ARGS__ in GCC) */
+#if defined(_doxygen) || defined(__GNUC__) || defined(__CC_ARM) /* additional ## modifier is used to supress the trailing , if no additional arg is passed. */
+  #define LOGC_OPTVARARG 1
+#elif defined(__MSC_VER) /* In MSC, __VA_ARGS__ will supress the , if no arg is passed */
+  #define LOGC_OPTVARARG 2
+#else
+  #define LOGC_OPTVARARG 0
+#endif
+
+/* Check for >= C99, or extension for __func__ macro */
+#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || (defined(_doxygen) || defined(__GNUC__) || defined(__CC_ARM))
+  #define LOGC_FUNCTIONNAME __func__
+#elif defined(__MSC_VER)          /* MS-Specific __FUNCTION__ macro */
+  #define LOGC_FUNCTIONNAME __FUNCTION__
+#else                            /* Fallback, if no macro for functionname is available */
+  #define LOGC_FUNCTIONNAME NULL
+#endif /* __STDC_VERSION__ */
 
 typedef struct TagLog_t TagLog;
 
@@ -56,6 +75,7 @@ typedef struct
  * @param iLogLevel Define from which level on the logs should be shown, @see enum ELogType.
  * @param szMaxEntryLength
  *                  The maximum Textlength for a single Entry, including prefix. Longer Text will be truncated.
+ *                  A newline will be added at the end of the text automatically, not counting to this size.
  * @param uiPrefixOptions
  *                  Options for Prefixing each entry, @see enum ELogPrefix
  * @param ptagLogFile
@@ -79,6 +99,12 @@ extern TagLog *ptagLogC_New_g(int iLogLevel,
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
                               );
 
+#ifdef __GNUC__
+  #define ADDENTRY_TEXT_FORMAT_CHECK __attribute__ ((format (printf, 6, 7)))
+#else
+  #define ADDENTRY_TEXT_FORMAT_CHECK
+#endif
+
 /**
  * Adds a new Logtext to the current log.
  * It's recommended not to use this function directly, use the LOG_TEXT() Macro instead.
@@ -88,7 +114,7 @@ extern TagLog *ptagLogC_New_g(int iLogLevel,
  * @param pcFileName Used for Prefixing the entry.
  * @param iLineNr    Used for Prefixing the entry.
  * @param pcFunction Used for Prefixing the entry.
- * @param pcLogText  The Logtext
+ * @param pcLogText  The Logtext including format specifiers, @see printf().
  *
  * @return 0 on success, negative value on Error.
  */
@@ -97,17 +123,16 @@ extern int iLogC_AddEntry_Text_g(TagLog *ptagLog,
                                  const char *pcFileName,
                                  int iLineNr,
                                  const char *pcFunction,
-                                 const char *pcLogText);
+                                 const char *pcLogText,
+                                 ...)ADDENTRY_TEXT_FORMAT_CHECK;
 
-/* Check for >= C99, or extension for __func__ macro */
-#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || (defined(_doxygen) || defined(__GNUC__) || defined(__CC_ARM))
-  #define LOG_TEXT(log,logtype,txt) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,__func__,txt)
-#elif defined(__MSC_VER)                                                 /* MS-Specific __FUNCTION__ macro */
-  #define LOG_TEXT(log,logtype,txt) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,__FUNCTION__,txt)
-#else                                                                    /* Fallback, if no macro for functionname is available */
-  #define LOG_TEXT(log,logtype,txt) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,NULL,txt)
-#endif /* __STDC_VERSION__ */
-
+#if LOGC_OPTVARARG == 1 /* GNUC optional Variadic macro (##__VA_ARGS__) */
+  #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,##__VA_ARGS__)
+#elif LOGC_OPTVARARG == 2 /* MS-Specific optional Variadic macro (Just __VA_ARGS__) */
+  #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,__VA_ARGS__)
+#else /* No optional VA-Args available */
+  #define LOG_TEXT(log,logtype,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,__VA_ARGS__)
+#endif /* LOGC_OPTVARARG */
 
 /**
  * Writes pending logs to File if needed and cleans up the Log-Object.
