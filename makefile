@@ -4,7 +4,7 @@ LINK=gcc
 FILES=LogC LogC_Test
 OBJ=$(addsuffix .o,$(FILES))
 
-CFLAGS=-ansi -Wextra -Wall
+CFLAGS=-ansi -Wextra -Wall Wformat=2
 LFLAGS=
 
 %.o: %.c
