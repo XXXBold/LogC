@@ -21,21 +21,23 @@
   int iLogTest_Storage_g(TagLog *ptagLog);
 #endif /* LOG_MAX_STORAGE_COUNT */
 
+#define LOGTEST_EXIT_FAILURE(log) if(iLogC_End_g(log))puts("LOGTEST_EXIT_FAILURE(): iLogC_End_g() failed!"); exit(EXIT_FAILURE)
+
 TagLog *ptagLog_m;
 
 void vLogTestFunc1_g(void)
 {
-  LOG_TEXT(ptagLog_m,LOGC_DEBUG_MORE,"Test_Debug_More_123456789abcdefghijklmnopqrstuvwxyz\n");
+  LOG_TEXT(ptagLog_m,LOGC_DEBUG_MORE,"Test_Debug_More_123456789abcdefghijklmnopqrstuvwxyz: %d, %s\n",123,"one-two-three");
 }
 
 void vLogTestFunc2_g(void)
 {
-  LOG_TEXT(ptagLog_m,LOGC_DEBUG,     "Test_Debug_123456789abcdefghijklmnopqrstuvwxyz");
+  LOG_TEXT(ptagLog_m,LOGC_DEBUG,     "Test_Debug_123456789abcdefghijklmnopqrstuvwxyz\n");
 }
 
 void vLogTestFunc3_g(void)
 {
-  LOG_TEXT(ptagLog_m,LOGC_INFO,      "Test_Info_123456789abcdefghijklmnopqrstuvwxyz");
+  LOG_TEXT(ptagLog_m,LOGC_INFO,      "Test_Info_123456789abcdefghijklmnopqrs\ntuvwxyz");
 }
 
 int main(void)
@@ -104,7 +106,7 @@ int main(void)
   if(iLogTest_File_g(ptagLog_m))
   {
     puts("iLogTest_File_g() failed");
-    return(EXIT_FAILURE);
+    LOGTEST_EXIT_FAILURE(ptagLog_m);
   }
 #endif /* LOGFILE_PATH */
 
@@ -112,7 +114,7 @@ int main(void)
   if(iLogTest_Storage_g(ptagLog_m))
   {
     puts("iLogTest_Storage_g() failed");
-    return(EXIT_FAILURE);
+    LOGTEST_EXIT_FAILURE(ptagLog_m);
   }
 #endif /* LOG_MAX_STORAGE_COUNT */
 
