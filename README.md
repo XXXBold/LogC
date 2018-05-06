@@ -1,9 +1,9 @@
 # LogC
 A Library for logging in C. 
-For full functionality, requires C99 or an implementation with a vsnprintf() or similar function.
+Requires C99 for functionality, or extensions supporting variadic Macros and an equivalent to the vsnprintf() function.
 
 Current status: WIP, not fully tested, use at own risk. 
-Only tested on Windows 7 x64 With MinGw_w64 under GCC 7.1 so far.
+Only tested on Windows 7 x64 using MinGw_w64 with GCC 7.1 so far.
 
 Makefile is reduced to a minimum ATM.
 
