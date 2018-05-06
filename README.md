@@ -10,5 +10,6 @@ Makefile is reduced to a minimum ATM.
 TODOs:
 - Test on Linux
 - Improve Tests in general
+- Improve Performance (less malloc/free calls)
 - Improve Documentation
 - Improve Makefile?
