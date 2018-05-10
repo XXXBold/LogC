@@ -14,33 +14,47 @@
 
 #define LOGC_TEXT_NO_FUNCTION "???"
 
-#ifdef _WIN32
-  #define LOGC_PATH_DELIMITER  '\\'
-  #define LOGC_PATH_DELIMITER2 '/'
-  #define LOGC_LOCALTIME(tTime,tStruct) localtime_s(tStruct,tTime)
-#elif __linux__
-  #define LOGC_PATH_DELIMITER  '/'
-  #define LOGC_LOCALTIME(tTime,tStruct) localtime_r(tTime,tStruct)
-#endif /* _WIN32 */
+#ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
+  #ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN /* Avoid include of useless windows headers */
+      #include <windows.h>
+    #undef WIN32_LEAN_AND_MEAN
+    typedef CRITICAL_SECTION TMutex;
+    #define LOGC_MUTEX_INIT(log)    if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {InitializeCriticalSection(&(log)->tMutex);}
+    #define LOGC_MUTEX_DESTROY(log) if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {DeleteCriticalSection(&(log)->tMutex);}
+    #define LOGC_MUTEX_LOCK(log)    if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {EnterCriticalSection(&(log)->tMutex);}
+    #define LOGC_MUTEX_UNLOCK(log)  if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {LeaveCriticalSection(&(log)->tMutex);}
+  #elif defined(__unix__)
+    #include <unistd.h> /* For determining the current POSIX-Version */
+    #if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L) /* POSIX IEEE 1003.1-2001 or newer */
+      #include <pthread.h>
+      #include <assert.h>
+      typedef pthread_mutex_t TMutex;
+      #define LOGC_MUTEX_INIT(log)    if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {assert(!pthread_mutex_init(&(log)->tMutex,NULL));}
+      #define LOGC_MUTEX_DESTROY(log) if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {assert(!pthread_mutex_destroy(&(log)->tMutex));}
+      #define LOGC_MUTEX_LOCK(log)    if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {assert(!pthread_mutex_lock(&(log)->tMutex));}
+      #define LOGC_MUTEX_UNLOCK(log)  if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) {assert(!pthread_mutex_unlock(&(log)->tMutex));}
+    #else
+      #error POSIX Version too old, must be POSIX IEEE 1003.1-2001 or newer for pthreads.
+    #endif
+  #else
+    #error No Mutex system implemented!
+  #endif /* _WIN32 */
+#else
+  #define LOGC_MUTEX_INIT(log)
+  #define LOGC_MUTEX_DESTROY(log)
+  #define LOGC_MUTEX_LOCK(log)
+  #define LOGC_MUTEX_UNLOCK(log)
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
 
-/* For vsnprintf C99 is needed, or MSC >=1900(VS 15) */
-#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || (defined(_MSC_VER) && (_MSC_VER>=1900))
-  #define LOGC_VSNPRINTF(buf,size,format,arglist) vsnprintf(buf,size,format,arglist)
-#elif defined(_MSC_VER) && (_MSC_VER<1900) /* Win-Specific _vsnprintf in older versions of MSC */
-  #define LOGC_VSNPRINTF(buf,size,format,arglist) (_vsnprintf(buf,size-1,format,arglist)>0)?*((buf)+size)='\0':-1
-#else /* Terminate compilation with an Error, if no vsnprintf is available */
-  #error No vsnprintf or equivalent available!
-  /* Use of !UNSAFE! ANSI-C vsprintf() will work, but can cause buffer overflow!
-     Use at own risk! Or better implement a custom function behaving like vsnprintf(). */
-  #define LOGC_VSNPRINTF(buf,size,format,arglist) vsprintf(buf,format,arglist)
-#endif
+#define BITS_UNSET(val,bitmap) (val&(~(bitmap)))
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* >= C99 */
-  #define INLINE_FCT_LOCAL inline
-  #define INLINE_PROT_LOCAL static inline
+  #define INLINE_FCT inline
+  #define INLINE_PROT static inline
 #else /* No inline available from C Standard */
-  #define INLINE_FCT_LOCAL
-  #define INLINE_PROT_LOCAL
+  #define INLINE_FCT
+  #define INLINE_PROT
 #endif /* __STDC_VERSION__ >= C99 */
 
 #define LOGC_PATH_MAXLEN           260 /* Should be enough for any usual cases */
@@ -80,7 +94,7 @@ typedef struct TagLogCEntry_t TagLogCEntry;
 struct TagLog_t
 {
   int iLogLevel;
-  unsigned int uiPrefixOptions;
+  unsigned int uiLogOptions;
   size_t szMaxEntryLength;
   char *pcTextBuffer;
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
@@ -96,24 +110,31 @@ struct TagLog_t
   TagLogCEntry *ptagSavedLogFirst;
   TagLogCEntry *ptagSavedLogLast;
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
+#ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
+  TMutex tMutex;
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
 };
+
+INLINE_PROT int iLogC_vsnprintf(char *pcBuffer,
+                                size_t szBufferSize,
+                                const char *pcFormat,
+                                va_list vaArgs);
 
 /* Functions if logfile is enabled */
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
-INLINE_PROT_LOCAL void vLogc_FileQueue_Push_m(TagLog *ptagLog,
+INLINE_PROT int iLogC_WriteEntriesToDisk_m(TagLog *ptagLog);
+INLINE_PROT void vLogc_FileQueue_Push_m(TagLog *ptagLog,
                                              TagLogCEntry *ptagEntry);
 
-INLINE_PROT_LOCAL TagLogCEntry *ptagLogC_FileQueue_Pop_m(TagLog *ptagLog);
+INLINE_PROT TagLogCEntry *ptagLogC_FileQueue_Pop_m(TagLog *ptagLog);
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
-INLINE_PROT_LOCAL void vLogC_StoragePush_m(TagLog *ptagLog,
+INLINE_PROT void vLogC_StoragePush_m(TagLog *ptagLog,
                                            TagLogCEntry *ptagEntry);
 
-INLINE_PROT_LOCAL char *pcLogC_StoragePop_m(TagLog *ptagLog,
+INLINE_PROT char *pcLogC_StoragePop_m(TagLog *ptagLog,
                                             size_t *pszEntryLength);
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
-
-
 
 const struct TagLogType *ptagLogC_GetLogType_m(int iLogType)
 {
@@ -126,10 +147,9 @@ const struct TagLogType *ptagLogC_GetLogType_m(int iLogType)
   return(NULL);
 }
 
-
 TagLog *ptagLogC_New_g(int iLogLevel,
                        size_t szMaxEntryLength,
-                       unsigned int uiPrefixOptions
+                       unsigned int uiLogOptions
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
                        ,TagLogFile *ptagLogFile
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
@@ -141,7 +161,15 @@ TagLog *ptagLogC_New_g(int iLogLevel,
   TagLog *ptagNewLog;
   size_t szNewLogSize=0;
 
-  if(szMaxEntryLength<sizeof(LOGC_DATETIME_FORMAT)+sizeof(LOGC_PREFIX_FORMAT_FILEINFO)+20)
+  /* Check for invalid log-Options*/
+  if(BITS_UNSET(uiLogOptions,
+                (LOGC_OPTION_PREFIX_FILEINFO|LOGC_OPTION_PREFIX_TIMESTAMP
+#ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
+                 |LOGC_OPTION_THREADSAFE
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
+                 )))
+    return(NULL);
+  if(szMaxEntryLength<sizeof(LOGC_DATETIME_FORMAT)+sizeof(LOGC_PREFIX_FORMAT_FILEINFO)+10)
     return(NULL);
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
   if(ptagLogFile)
@@ -164,7 +192,7 @@ TagLog *ptagLogC_New_g(int iLogLevel,
   ptagNewLog->pcTextBuffer=((char*)ptagNewLog)+sizeof(TagLog);
   ptagNewLog->szMaxEntryLength=szMaxEntryLength;
   ptagNewLog->iLogLevel=iLogLevel;
-  ptagNewLog->uiPrefixOptions=uiPrefixOptions;
+  ptagNewLog->uiLogOptions=uiLogOptions;
 
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
   if(ptagLogFile)
@@ -185,17 +213,20 @@ TagLog *ptagLogC_New_g(int iLogLevel,
   ptagNewLog->szStoredLogsCount=0;
   ptagNewLog->ptagSavedLogFirst=NULL;
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
+  LOGC_MUTEX_INIT(ptagNewLog);
   return(ptagNewLog);
 }
 
 int iLogC_End_g(TagLog *ptagLog)
 {
+  LOGC_MUTEX_LOCK(ptagLog);
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
   /* Check if there are entries to be written */
   if((ptagLog->caLogPath[0]!='\0') && (ptagLog->szCurrentFileQueueSize))
   {
-    if(iLogC_WriteEntriesToDisk_g(ptagLog))
+    if(iLogC_WriteEntriesToDisk_m(ptagLog))
     {
+      LOGC_MUTEX_UNLOCK(ptagLog);
       return(-1);
     }
   }
@@ -206,14 +237,21 @@ int iLogC_End_g(TagLog *ptagLog)
     free(pcLogC_StoragePop_m(ptagLog,NULL));
   }
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
+  LOGC_MUTEX_UNLOCK(ptagLog);
+  LOGC_MUTEX_DESTROY(ptagLog);
   free(ptagLog);
   return(0);
 }
 
-void vLogC_SetPrefixOptions_g(TagLog *ptagLog,
-                              unsigned int uiNewPrefixOptions)
+int iLogC_SetPrefixOptions_g(TagLog *ptagLog,
+                             unsigned int uiNewPrefixOptions)
 {
-  ptagLog->uiPrefixOptions=uiNewPrefixOptions;
+  /* Check for invalid Options */
+  if(BITS_UNSET(uiNewPrefixOptions,(LOGC_OPTION_PREFIX_FILEINFO|LOGC_OPTION_PREFIX_TIMESTAMP)))
+    return(-1);
+  ptagLog->uiLogOptions&=(UINT_MAX&~0xFF);
+  ptagLog->uiLogOptions|=(uiNewPrefixOptions&0xFF);
+  return(0);
 }
 
 int iLogC_AddEntry_Text_g(TagLog *ptagLog,
@@ -234,63 +272,99 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
   if(!(ptagCurrLogType=ptagLogC_GetLogType_m(iLogType)))
     return(-1);
 
+  LOGC_MUTEX_LOCK(ptagLog);
   /* Check if Timestamp is needed */
-  if((ptagLog->uiPrefixOptions&LOGC_PREFIX_TIMESTAMP))
+  if((ptagLog->uiLogOptions&LOGC_OPTION_PREFIX_TIMESTAMP))
   {
-    struct tm tagTime;
     time_t tTime=time(NULL);
-    LOGC_LOCALTIME(&tTime,&tagTime);
+#if defined(LOGC_FEATURE_ENABLE_THREADSAFETY) && !defined(_WIN32) /* Check if threadsafe implementation is needed (WIN32 localtime() is threadsafe anyway) */
+    struct tm tagTime;
+  #if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L) /* POSIX IEEE 1003.1-2001 or newer */
+    localtime_r(&tTime,&tagTime);
+  #else /* No POSIX nor Win32 */
+    #error No threadsafe localtime() available!
+  #endif /* _POSIX_VERSION >= 200112L */
+#else /* !LOGC_FEATURE_ENABLE_THREADSAFETY or WIN32 */
+    struct tm *ptagTime=localtime(&tTime);
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY && !WIN32 */
+
     if(!(szCurrBufferPos+=strftime(ptagLog->pcTextBuffer,
                                    ptagLog->szMaxEntryLength,
                                    LOGC_DATETIME_FORMAT,
-                                   &tagTime)))
+#if defined(LOGC_FEATURE_ENABLE_THREADSAFETY) && !defined(_WIN32)
+                                   &tagTime
+#else /* !LOGC_FEATURE_ENABLE_THREADSAFETY or WIN32 */
+                                   ptagTime
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY && !WIN32 */
+                                   )))
+    {
+      LOGC_MUTEX_UNLOCK(ptagLog);
       return(-1);
+    }
   }
 
   /* Check if Fileinfo is needed */
-  if((ptagLog->uiPrefixOptions&LOGC_PREFIX_FILEINFO))
+  if((ptagLog->uiLogOptions&LOGC_OPTION_PREFIX_FILEINFO))
   {
-    if(sizeof(LOGC_PREFIX_FORMAT_FILEINFO)+((pcFunction)?strlen(pcFunction):sizeof(LOGC_TEXT_NO_FUNCTION))+strlen(pcFileName)+20>ptagLog->szMaxEntryLength)
+    if(sizeof(LOGC_PREFIX_FORMAT_FILEINFO)+((pcFunction)?strlen(pcFunction):sizeof(LOGC_TEXT_NO_FUNCTION))+strlen(pcFileName)+10>ptagLog->szMaxEntryLength-szCurrBufferPos)
+    {
+      LOGC_MUTEX_UNLOCK(ptagLog);
       return(-1);
+    }
     iRc=sprintf(&ptagLog->pcTextBuffer[szCurrBufferPos],
                 LOGC_PREFIX_FORMAT_FILEINFO,
                 ptagCurrLogType->pcText,
                 pcFileName,
                 iLineNr,
                 (pcFunction)?pcFunction:LOGC_TEXT_NO_FUNCTION);
+    printf("1: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
   }
   else
   {
-    if(sizeof(LOGC_PREFIX_FORMAT_NO_FILEINFO)+((pcFunction)?strlen(pcFunction):sizeof(LOGC_TEXT_NO_FUNCTION))+20>ptagLog->szMaxEntryLength)
+    if(sizeof(LOGC_PREFIX_FORMAT_NO_FILEINFO)+((pcFunction)?strlen(pcFunction):sizeof(LOGC_TEXT_NO_FUNCTION))+10>ptagLog->szMaxEntryLength-szCurrBufferPos)
+    {
+      LOGC_MUTEX_UNLOCK(ptagLog);
       return(-1);
+    }
     iRc=sprintf(&ptagLog->pcTextBuffer[szCurrBufferPos],
                 LOGC_PREFIX_FORMAT_NO_FILEINFO,
                 ptagCurrLogType->pcText,
                 (pcFunction)?pcFunction:LOGC_TEXT_NO_FUNCTION);
+    printf("2: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
   }
   if(iRc<1)
+  {
+    LOGC_MUTEX_UNLOCK(ptagLog);
     return(-1);
+  }
 
   szCurrBufferPos+=iRc;
   errno=0;
   va_start(vaArgs,pcLogText);
-  iRc=LOGC_VSNPRINTF(&ptagLog->pcTextBuffer[szCurrBufferPos],
-                     ptagLog->szMaxEntryLength-szCurrBufferPos,
+  iRc=iLogC_vsnprintf(&ptagLog->pcTextBuffer[szCurrBufferPos],
+                     ptagLog->szMaxEntryLength+1-szCurrBufferPos, /* +1 is okay, we have 2 more bytes reserved then szMaxEntryLength */
                      pcLogText,
                      vaArgs);
   va_end(vaArgs);
   if(errno==EINVAL)
+  {
+    LOGC_MUTEX_UNLOCK(ptagLog);
     return(-1);
+  }
+  printf("3: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
+
 
   /* Check for truncation */
   if(iRc<1)
   {
+    puts("TRUNCATED!");   // TODO: remove this
     szCurrBufferPos=ptagLog->szMaxEntryLength;
     ptagLog->pcTextBuffer[szCurrBufferPos]='\n';
     ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
   }
   else
   {
+    puts("NOT TRUNCATED!");   // TODO: remove this
     szCurrBufferPos+=iRc;
     /* Check if there's already a newline at the end */
     if(ptagLog->pcTextBuffer[szCurrBufferPos-1]!='\n')
@@ -299,6 +373,7 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
       ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
     }
   }
+  printf("4: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
 
   switch(ptagCurrLogType->eOutStream)
   {
@@ -326,7 +401,11 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
     vLogc_FileQueue_Push_m(ptagLog,ptagNewEntry);
     if((ptagLog->szMaxFileQueueSize) && (ptagLog->szCurrentFileQueueSize>=ptagLog->szMaxFileQueueSize))
     {
-      return(iLogC_WriteEntriesToDisk_g(ptagLog));
+      if(iLogC_WriteEntriesToDisk_m(ptagLog))
+      {
+        LOGC_MUTEX_UNLOCK(ptagLog);
+        return(-1);
+      }
     }
   }
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
@@ -335,7 +414,10 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
   {
     char *pcTmp;
     if(!(pcTmp=malloc(sizeof(TagLogCEntry)+szCurrBufferPos)))
+    {
+      LOGC_MUTEX_UNLOCK(ptagLog);
       return(-1);
+    }
 
     ((TagLogCEntry*)(pcTmp+szCurrBufferPos))->pcText=pcTmp;
     ((TagLogCEntry*)(pcTmp+szCurrBufferPos))->szTextLength=szCurrBufferPos;
@@ -343,35 +425,73 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
     vLogC_StoragePush_m(ptagLog,((TagLogCEntry*)(pcTmp+szCurrBufferPos)));
   }
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
+  LOGC_MUTEX_UNLOCK(ptagLog);
   return(0);
+}
+
+INLINE_FCT int iLogC_vsnprintf(char *pcBuffer,
+                               size_t szBufferSize,
+                               const char *pcFormat,
+                               va_list vaArgs)
+{
+  int iRc;
+/* For vsnprintf C99 is needed, or MSC >=1900(VS 15) */
+#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))
+  #ifdef _WIN32 /* Win32 _vsnprintf() is a bit diffrent from STDC... */
+    if((iRc=_vsnprintf(pcBuffer,szBufferSize-1,pcFormat,vaArgs))<1)
+      pcBuffer[szBufferSize-1]='\0';
+    return(iRc);
+  #else /* vsnprintf() which should be conformant to STDC */
+    if((iRc=vsnprintf(pcBuffer,szBufferSize,pcFormat,vaArgs))>=(int)szBufferSize)
+      iRc=-1;
+    return(iRc);
+  #endif
+#else /* Terminate compilation with an Error, if no vsnprintf is available */
+  #error No vsnprintf or equivalent available!
+  /* Use of !UNSAFE! ANSI-C vsprintf() will work, but can cause buffer overflow!
+     Use at own risk! Or better implement a custom function behaving like vsnprintf(). */
+  #define LOGC_VSNPRINTF(ret,buf,size,format,arglist) ret=vsprintf(buf,format,arglist)
+#endif
 }
 
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
 int iLogC_SetFilePath_g(TagLog *ptagLog,
                         const char *pcNewPath)
 {
-  size_t szPathLength;
+  size_t szPathLength=0;
   if(pcNewPath)
   {
     szPathLength=strlen(pcNewPath)+1;
     if(szPathLength>LOGC_PATH_MAXLEN)
       return(-1);
   }
+  LOGC_MUTEX_LOCK(ptagLog);
   /* Write queue to old file first */
-  if(iLogC_WriteEntriesToDisk_g(ptagLog))
+  if(iLogC_WriteEntriesToDisk_m(ptagLog))
+  {
+    LOGC_MUTEX_UNLOCK(ptagLog);
     return(-1);
-
-  if(!pcNewPath)
-    ptagLog->caLogPath[0]='\0';
-  else
+  }
+  if(pcNewPath)
     memcpy(ptagLog->caLogPath,pcNewPath,szPathLength);
+  else
+    ptagLog->caLogPath[0]='\0';
+  LOGC_MUTEX_UNLOCK(ptagLog);
   return(0);
 }
 
 int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog)
 {
+  int iRc;
+  LOGC_MUTEX_LOCK(ptagLog);
+  iRc=iLogC_WriteEntriesToDisk_m(ptagLog);
+  LOGC_MUTEX_UNLOCK(ptagLog);
+  return(iRc);
+}
+
+INLINE_FCT int iLogC_WriteEntriesToDisk_m(TagLog *ptagLog)
+{
   FILE *fp;
-  TagLogCEntry *ptagCurrEntry;
 
   if((!ptagLog->caLogPath[0]) || (!ptagLog->szCurrentFileQueueSize))
     return(0);
@@ -380,9 +500,9 @@ int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog)
   {
     perror("Failed to Open LogFile: ");
   }
-
   while(ptagLog->szCurrentFileQueueSize)
   {
+    TagLogCEntry *ptagCurrEntry;
     if(!(ptagCurrEntry=ptagLogC_FileQueue_Pop_m(ptagLog)))
     {
       if(fp)
@@ -398,8 +518,8 @@ int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog)
   return((fp)?0:-1);
 }
 
-INLINE_FCT_LOCAL void vLogc_FileQueue_Push_m(TagLog *ptagLog,
-                                             TagLogCEntry *ptagEntry)
+INLINE_FCT void vLogc_FileQueue_Push_m(TagLog *ptagLog,
+                                       TagLogCEntry *ptagEntry)
 {
   /* Check if first entry in queue */
   ptagEntry->ptagNext=NULL;
@@ -416,7 +536,7 @@ INLINE_FCT_LOCAL void vLogc_FileQueue_Push_m(TagLog *ptagLog,
   return;
 }
 
-INLINE_FCT_LOCAL TagLogCEntry *ptagLogC_FileQueue_Pop_m(TagLog *ptagLog)
+INLINE_FCT TagLogCEntry *ptagLogC_FileQueue_Pop_m(TagLog *ptagLog)
 {
   TagLogCEntry *ptagTmp;
 
@@ -434,10 +554,14 @@ INLINE_FCT_LOCAL TagLogCEntry *ptagLogC_FileQueue_Pop_m(TagLog *ptagLog)
 char *pcLogC_StorageGetNextLog_g(TagLog *ptagLog,
                                  size_t *pszEntryLength)
 {
-  return(pcLogC_StoragePop_m(ptagLog,pszEntryLength));
+  char *pcTmp;
+  LOGC_MUTEX_LOCK(ptagLog);
+  pcTmp=pcLogC_StoragePop_m(ptagLog,pszEntryLength);
+  LOGC_MUTEX_UNLOCK(ptagLog);
+  return(pcTmp);
 }
 
-INLINE_FCT_LOCAL void vLogC_StoragePush_m(TagLog *ptagLog,
+INLINE_FCT void vLogC_StoragePush_m(TagLog *ptagLog,
                                           TagLogCEntry *ptagEntry)
 {
   ptagEntry->ptagNext=NULL;
@@ -463,7 +587,7 @@ INLINE_FCT_LOCAL void vLogC_StoragePush_m(TagLog *ptagLog,
   return;
 }
 
-INLINE_FCT_LOCAL char *pcLogC_StoragePop_m(TagLog *ptagLog,
+INLINE_FCT char *pcLogC_StoragePop_m(TagLog *ptagLog,
                                            size_t *pszEntryLength)
 {
   TagLogCEntry *ptagTmp;
