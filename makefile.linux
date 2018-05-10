@@ -1,0 +1,20 @@
+CC=gcc
+LINK=gcc
+
+FILES=LogC LogC_Test
+OBJ=$(addsuffix .o,$(FILES))
+
+CFLAGS=-ggdb -Og -Wextra -Wall -Wformat=2 -pthread
+LFLAGS=-lpthread
+
+%.o: %.c
+                $(CC) -c -o $@ $< $(CFLAGS)
+
+LogC_Test: $(OBJ)
+                $(LINK) -o $@ $^ $(LFLAGS)
+
+.PHONY: clean
+
+clean:
+                rm -f $@ *.o
+                echo Clean done
