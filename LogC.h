@@ -4,12 +4,13 @@
 #include <stdarg.h>
 #include <limits.h>
 
-#define LOGC_FEATURE_ENABLE_LOGFILE     /* Enable this option if you want to log to a file */
-#define LOGC_FEATURE_ENABLE_LOG_STORAGE /* Enable this option if you want to store logs */
+  #define LOGC_FEATURE_ENABLE_LOGFILE       /* Enable this option if you want to log to a file */
+  #define LOGC_FEATURE_ENABLE_LOG_STORAGE   /* Enable this option if you want to store logs */
+  #define LOGC_FEATURE_ENABLE_THREADSAFETY  /* Enable this for making safe for use within multithreaded Applications */
 
 enum ELogType
 {
-  LOGC_ALL        =INT_MIN,
+  LOGC_ALL        =0,
   LOGC_DEBUG_MORE =100,
   LOGC_DEBUG      =200,
   LOGC_INFO       =300,
@@ -19,10 +20,26 @@ enum ELogType
   LOGC_NONE       =INT_MAX
 };
 
-enum ELogPrefix
+/**
+ * Use these Options to configure the log as you need it.
+ */
+enum ELogOptions
 {
-  LOGC_PREFIX_FILEINFO   =0x1,
-  LOGC_PREFIX_TIMESTAMP  =0x2
+  /**
+   * Adds Fileinfo to the Prefix of each entry, e.g. myfile.c@line 11
+   */
+  LOGC_OPTION_PREFIX_FILEINFO   =0x1,
+  /**
+   * Adds a Timestamp to each entry, e.g. 2018-01-02_12:34:56
+   */
+  LOGC_OPTION_PREFIX_TIMESTAMP  =0x2,
+#ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
+  /**
+   * Makes the Interface Threadsafe for the current Log-Object.
+   * Just needed if you want to access the same Log-Object from diffrent Threads.
+   */
+  LOGC_OPTION_THREADSAFE        =0x100,
+#endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
 };
 
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
@@ -30,9 +47,9 @@ enum ELogPrefix
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
 
 /* Check for optional variadic macro extension (##__VA_ARGS__ in GCC) */
-#if defined(_doxygen) || defined(__GNUC__) || defined(__CC_ARM) /* additional ## modifier is used to supress the trailing , if no additional arg is passed. */
+#if defined(_doxygen) || defined(__GNUC__) || defined(__CC_ARM) /* additional ## modifier is used to supress the ',' if no additional arg is passed. */
   #define LOGC_OPTVARARG 1
-#elif defined(__MSC_VER) /* In MSC, __VA_ARGS__ will supress the , if no arg is passed */
+#elif defined(__MSC_VER) /* In MSC, __VA_ARGS__ will supress the ',' automatically if no arg is passed */
   #define LOGC_OPTVARARG 2
 #else
   #define LOGC_OPTVARARG 0
@@ -76,8 +93,8 @@ typedef struct
  * @param szMaxEntryLength
  *                  The maximum Textlength for a single Entry, including prefix. Longer Text will be truncated.
  *                  A newline will be added at the end of the text automatically, not counting to this size.
- * @param uiPrefixOptions
- *                  Options for Prefixing each entry, @see enum ELogPrefix
+ * @param uiLogOptions
+ *                  Options for logging, @see enum ELogOptions
  * @param ptagLogFile
  *                  Just available if LOGC_FEATURE_ENABLE_LOGFILE is defined, contains info for logging to a file.
  *                  If no file is required, pass NULL.
@@ -90,7 +107,7 @@ typedef struct
  */
 extern TagLog *ptagLogC_New_g(int iLogLevel,
                               size_t szMaxEntryLength,
-                              unsigned int uiPrefixOptions
+                              unsigned int uiLogOptions
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
                               ,TagLogFile *ptagLogFile
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
@@ -130,7 +147,7 @@ extern int iLogC_AddEntry_Text_g(TagLog *ptagLog,
   #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,##__VA_ARGS__)
 #elif LOGC_OPTVARARG == 2 /* MS-Specific optional Variadic macro (Just __VA_ARGS__) */
   #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,__VA_ARGS__)
-#else /* No optional VA-Args available */
+#else /* No optional varArgs available */
   #define LOG_TEXT(log,logtype,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,__VA_ARGS__)
 #endif /* LOGC_OPTVARARG */
 
@@ -148,10 +165,11 @@ extern int iLogC_End_g(TagLog *ptagLog);
  *
  * @param ptagLog The Log-Object
  * @param uiNewPrefixOptions
- *                New Options for the Prefix, @see enum ELogPrefix.
+ *                New Options for the Prefix, @see enum ELogOptions,
+ *                just use LOGC_OPTION_PREFIX_XXX Options.
  */
-extern void vLogC_SetPrefixOptions_g(TagLog *ptagLog,
-                                     unsigned int uiNewPrefixOptions);
+extern int iLogC_SetPrefixOptions_g(TagLog *ptagLog,
+                                    unsigned int uiNewPrefixOptions);
 
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
 /**
