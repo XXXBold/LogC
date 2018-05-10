@@ -2,13 +2,12 @@
 A Library for logging in C. 
 Requires C99 for functionality, or extensions supporting variadic Macros and an equivalent to the vsnprintf() function.
 
-Current status: WIP, not fully tested, use at own risk. 
-Only tested on Windows 7 x64 using MinGw_w64 with GCC 7.1 so far.
+Current status: WIP, not fully tested, use at own risk. Compiles on Windows and Linux using GCC.
+Tested on Windows 7 x64 using MinGw_w64 with GCC 7.1 so far on Linux using GCC 6.3.
 
 Makefile is reduced to a minimum ATM.
 
 TODOs:
-- Test on Linux
 - Improve Tests in general
 - Improve Performance (less malloc/free calls)
 - Improve Documentation
