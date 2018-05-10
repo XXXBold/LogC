@@ -317,7 +317,6 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
                 pcFileName,
                 iLineNr,
                 (pcFunction)?pcFunction:LOGC_TEXT_NO_FUNCTION);
-    printf("1: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
   }
   else
   {
@@ -330,7 +329,6 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
                 LOGC_PREFIX_FORMAT_NO_FILEINFO,
                 ptagCurrLogType->pcText,
                 (pcFunction)?pcFunction:LOGC_TEXT_NO_FUNCTION);
-    printf("2: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
   }
   if(iRc<1)
   {
@@ -351,20 +349,17 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
     LOGC_MUTEX_UNLOCK(ptagLog);
     return(-1);
   }
-  printf("3: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
 
 
   /* Check for truncation */
   if(iRc<1)
   {
-    puts("TRUNCATED!");   // TODO: remove this
     szCurrBufferPos=ptagLog->szMaxEntryLength;
     ptagLog->pcTextBuffer[szCurrBufferPos]='\n';
     ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
   }
   else
   {
-    puts("NOT TRUNCATED!");   // TODO: remove this
     szCurrBufferPos+=iRc;
     /* Check if there's already a newline at the end */
     if(ptagLog->pcTextBuffer[szCurrBufferPos-1]!='\n')
@@ -373,7 +368,6 @@ int iLogC_AddEntry_Text_g(TagLog *ptagLog,
       ptagLog->pcTextBuffer[++szCurrBufferPos]='\0';
     }
   }
-  printf("4: iRc=%d, szCurrBufferPos=%lu\n",iRc,(unsigned long)szCurrBufferPos);   // TODO: remove this
 
   switch(ptagCurrLogType->eOutStream)
   {
