@@ -8,6 +8,8 @@
   #define LOGC_FEATURE_ENABLE_LOG_STORAGE   /* Enable this option if you want to store logs */
   #define LOGC_FEATURE_ENABLE_THREADSAFETY  /* Enable this for making safe for use within multithreaded Applications */
 
+#define LOGC_LIBRARY_DEBUG
+
 enum ELogType
 {
   LOGC_ALL        =0,
@@ -25,14 +27,16 @@ enum ELogType
  */
 enum ELogOptions
 {
+  /* 2018-01-02 */
+  LOGC_OPTION_PREFIX_TIMESTAMP_DATE =0x1,
+  /* 12:34:56 */
+  LOGC_OPTION_PREFIX_TIMESTAMP_TIME =0x2,
+  /* .0123 */
+  LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS =0x4,
   /**
    * Adds Fileinfo to the Prefix of each entry, e.g. myfile.c@line 11
    */
-  LOGC_OPTION_PREFIX_FILEINFO   =0x1,
-  /**
-   * Adds a Timestamp to each entry, e.g. 2018-01-02_12:34:56
-   */
-  LOGC_OPTION_PREFIX_TIMESTAMP  =0x2,
+  LOGC_OPTION_PREFIX_FILEINFO   =0x10,
 #ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
   /**
    * Makes the Interface Threadsafe for the current Log-Object.
@@ -76,13 +80,6 @@ typedef struct
    * The Path for logging.
    */
   const char *pcFilePath;
-  /**
-   * The Entries won't be written directly to the file,
-   * specify here how many Entriess can be queued before writing them.
-   * A value of 0 means no Entries will be written automaticly.
-   * @see iLogC_WriteEntriesToDisk_g() in this case
-   */
-  size_t szMaxFileQueueSize;
 }TagLogFile;
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 
