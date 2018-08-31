@@ -1,7 +1,3 @@
-
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -375,6 +371,3 @@ int iLogTest_Threads_m(TagLog *ptagLog)
   return((uiIndex==LOGC_TEST_THREADS_COUNT)?0:-1);
 }
 #endif /* Test-Threads */
-
-
-
