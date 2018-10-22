@@ -60,7 +60,7 @@
   int iLogTest_Storage_g(TagLog *ptagLog);
 #endif /* LOG_MAX_STORAGE_COUNT */
 
-#define LOGTEST_EXIT_FAILURE(log) if(iLogC_End_g(log))LOGC_TEST_TRACE("LOGTEST_EXIT_FAILURE(): iLogC_End_g() failed!"); exit(EXIT_FAILURE)
+#define LOGTEST_EXIT_FAILURE(log) if(LogC_End(log))LOGC_TEST_TRACE("LOGTEST_EXIT_FAILURE(): LogC_End() failed!"); exit(EXIT_FAILURE)
 
 TagLog *ptagLog_m;
 
@@ -81,33 +81,33 @@ void vLogTestFunc3_g(void)
 
 int main(void)
 {
-#ifdef LOGFILE_PATH
+#ifdef LOGC_FEATURE_ENABLE_LOGFILE
   TagLogFile tagLogFile;
   tagLogFile.pcFilePath=LOGFILE_PATH;
-#endif /* LOGFILE_PATH */
+#endif
   LOGC_TEST_TRACE("Creating Log-Object...");
-  if(!(ptagLog_m=ptagLogC_New_g(LOGC_ALL,
-                                128,
+  if(!(ptagLog_m=LogC_New(LOGC_ALL,
+                          128,
 #ifdef LOGC_TEST_THREADS
-                                LOGC_OPTION_THREADSAFE
+                          LOGC_OPTION_THREADSAFE
 #else /* !LOGC_TEST_THREADS */
-                                0
+                          0
 #endif /* LOGC_TEST_THREADS */
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
   #ifdef LOGFILE_PATH
-                                ,&tagLogFile
+                          ,&tagLogFile
   #else
-                                ,NULL
+                          ,NULL
   #endif
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
   #ifdef LOG_MAX_STORAGE_COUNT
-                                ,LOG_MAX_STORAGE_COUNT
+                          ,LOG_MAX_STORAGE_COUNT
   #else
-                                ,0
+                          ,0
   #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE*/
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
-                                )))
+                          )))
   {
     printf("ptagLogC_New_g() failed\n");
     return(EXIT_FAILURE);
@@ -116,9 +116,9 @@ int main(void)
   LOGC_TEST_TEXT(ptagLog_m,LOGC_WARNING,   "Test_Warning_123456789abcdefghijklmnopqrstuvwxyz\n");
   LOGC_TEST_TEXT(ptagLog_m,LOGC_ERROR,     "Test_Error_123456789abcdefghijklmnopqrstuvwxyz");
 
-  LOGC_TEST_TRACE("Changing Log options to LOGC_PREFIX_FILEINFO...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              LOGC_OPTION_PREFIX_FILEINFO))
+  LOGC_TEST_TRACE("Changing Prefix options to LOGC_OPTION_PREFIX_FILEINFO...");
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           LOGC_OPTION_PREFIX_FILEINFO))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -128,8 +128,8 @@ int main(void)
   vLogTestFunc2_g();
 
   LOGC_TEST_TRACE("Changing Prefix options to LOGC_OPTION_PREFIX_TIMESTAMP_DATE...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              LOGC_OPTION_PREFIX_TIMESTAMP_DATE))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           LOGC_OPTION_PREFIX_TIMESTAMP_DATE))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -139,8 +139,8 @@ int main(void)
   LOGC_TEST_TEXT(ptagLog_m,LOGC_ERROR,     "Test_Error_123456789abcdefghijklmnopqrstuvwxyz");
 
   LOGC_TEST_TRACE("Changing Prefix options to LOGC_OPTION_PREFIX_TIMESTAMP_TIME...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              LOGC_OPTION_PREFIX_TIMESTAMP_TIME))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           LOGC_OPTION_PREFIX_TIMESTAMP_TIME))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -150,8 +150,8 @@ int main(void)
   vLogTestFunc2_g();
 
   LOGC_TEST_TRACE("Changing Prefix options to LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -161,8 +161,8 @@ int main(void)
   vLogTestFunc2_g();
 
   LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME)...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME)))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME)))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -172,8 +172,8 @@ int main(void)
   vLogTestFunc2_g();
 
   LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              (LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           (LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -182,9 +182,9 @@ int main(void)
   vLogTestFunc1_g();
   vLogTestFunc2_g();
 
-  LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
+  LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS) + NOW LOCALTIME...");
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS|LOGC_OPTION_PREFIX_TIMESTAMP_LOCALTIME)))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -194,8 +194,8 @@ int main(void)
   vLogTestFunc2_g();
 
   LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           (LOGC_OPTION_PREFIX_TIMESTAMP_DATE|LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -223,8 +223,8 @@ int main(void)
 
 #ifdef LOGC_TEST_THREADS
   LOGC_TEST_TRACE("Changing Prefix options to (LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)...");
-  if(iLogC_SetPrefixOptions_g(ptagLog_m,
-                              (LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
+  if(LogC_SetPrefixOptions(ptagLog_m,
+                           (LOGC_OPTION_PREFIX_TIMESTAMP_TIME|LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS)))
   {
     LOGC_TEST_TRACE("iLogC_SetPrefixOptions_g() failed");
     LOGTEST_EXIT_FAILURE(ptagLog_m);
@@ -237,7 +237,7 @@ int main(void)
 #endif /* LOGC_TEST_THREADS */
 
   LOGC_TEST_TRACE("Ending log...");
-  if(iLogC_End_g(ptagLog_m))
+  if(LogC_End(ptagLog_m))
   {
     printf("iLogC_End_g() failed\n");
     return(EXIT_FAILURE);
@@ -251,7 +251,7 @@ int iLogTest_File_g(TagLog *ptagLog)
 {
   LOGC_TEST_TRACE("Testing: LOGC_FEATURE_ENABLE_LOGFILE");
   LOGC_TEST_TRACE("Changing logfilepath from " LOGFILE_PATH " to " LOGFILE_PATH2 "...");
-  if(iLogC_SetFilePath_g(ptagLog,LOGFILE_PATH2))
+  if(LogC_SetFilePath(ptagLog,LOGFILE_PATH2))
   {
     printf("iLogC_SetFilePath_g() failed\n");
     return(-1);
@@ -261,7 +261,7 @@ int iLogTest_File_g(TagLog *ptagLog)
   vLogTestFunc3_g();
 
   LOGC_TEST_TRACE("Disabling logfile...");
-  if(iLogC_SetFilePath_g(ptagLog,NULL))
+  if(LogC_SetFilePath(ptagLog,NULL))
   {
     printf("iLogC_SetFilePath_g() failed\n");
     return(-1);
@@ -281,7 +281,7 @@ int iLogTest_Storage_g(TagLog *ptagLog)
   char *pcLogText;
   LOGC_TEST_TRACE("Testing: LOGC_FEATURE_ENABLE_LOG_STORAGE");
   LOGC_TEST_TRACE("Get all stored logs and print them...");
-  while((pcLogText=pcLogC_StorageGetNextLog_g(ptagLog,&szLength)))
+  while((pcLogText=LogC_StorageGetNextLog(ptagLog,&szLength)))
   {
     ++iLogsCount;
     printf("Next LogText: \"%s\"\n",pcLogText);
@@ -371,3 +371,4 @@ int iLogTest_Threads_m(TagLog *ptagLog)
   return((uiIndex==LOGC_TEST_THREADS_COUNT)?0:-1);
 }
 #endif /* Test-Threads */
+
