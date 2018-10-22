@@ -10,6 +10,10 @@
 
 #define LOGC_LIBRARY_DEBUG
 
+/**
+ * This are the available logtypes for each entry.
+ * Edit as you need, also in LogC.c!
+ */
 enum ELogType
 {
   LOGC_ALL        =0,
@@ -28,21 +32,25 @@ enum ELogType
 enum ELogOptions
 {
   /* 2018-01-02 */
-  LOGC_OPTION_PREFIX_TIMESTAMP_DATE =0x1,
+  LOGC_OPTION_PREFIX_TIMESTAMP_DATE           =0x1,
   /* 12:34:56 */
-  LOGC_OPTION_PREFIX_TIMESTAMP_TIME =0x2,
+  LOGC_OPTION_PREFIX_TIMESTAMP_TIME           =0x2,
   /* .0123 */
   LOGC_OPTION_PREFIX_TIMESTAMP_TIME_MILLISECS =0x4,
   /**
    * Adds Fileinfo to the Prefix of each entry, e.g. myfile.c@line 11
    */
-  LOGC_OPTION_PREFIX_FILEINFO   =0x10,
+  LOGC_OPTION_PREFIX_FILEINFO                 =0x10,
+  /* Keeps the logs timestamp in UTC (this is the default behaviour if nothing is specified) */
+  LOGC_OPTION_PREFIX_TIMESTAMP_UTC            =0x100,
+  /* Sets the timestamp to localtime */
+  LOGC_OPTION_PREFIX_TIMESTAMP_LOCALTIME      =0x200,
 #ifdef LOGC_FEATURE_ENABLE_THREADSAFETY
   /**
    * Makes the Interface Threadsafe for the current Log-Object.
    * Just needed if you want to access the same Log-Object from diffrent Threads.
    */
-  LOGC_OPTION_THREADSAFE        =0x100,
+  LOGC_OPTION_THREADSAFE                      =0x1000,
 #endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
 };
 
@@ -102,16 +110,16 @@ typedef struct
  *
  * @return Pointer to new Log-Object, NULL if an Error occured.
  */
-extern TagLog *ptagLogC_New_g(int iLogLevel,
-                              size_t szMaxEntryLength,
-                              unsigned int uiLogOptions
+extern TagLog *LogC_New(int iLogLevel,
+                        size_t szMaxEntryLength,
+                        unsigned int uiLogOptions
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
-                              ,TagLogFile *ptagLogFile
+                        ,TagLogFile *ptagLogFile
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
-                              ,size_t szMaxStorageCount
+                        ,size_t szMaxStorageCount
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
-                              );
+                        );
 
 #ifdef __GNUC__
   #define ADDENTRY_TEXT_FORMAT_CHECK __attribute__ ((format (printf, 6, 7)))
@@ -132,20 +140,20 @@ extern TagLog *ptagLogC_New_g(int iLogLevel,
  *
  * @return 0 on success, negative value on Error.
  */
-extern int iLogC_AddEntry_Text_g(TagLog *ptagLog,
-                                 int iLogType,
-                                 const char *pcFileName,
-                                 int iLineNr,
-                                 const char *pcFunction,
-                                 const char *pcLogText,
-                                 ...)ADDENTRY_TEXT_FORMAT_CHECK;
+extern int LogC_AddEntry_Text(TagLog *ptagLog,
+                              int iLogType,
+                              const char *pcFileName,
+                              int iLineNr,
+                              const char *pcFunction,
+                              const char *pcLogText,
+                              ...)ADDENTRY_TEXT_FORMAT_CHECK;
 
 #if LOGC_OPTVARARG == 1 /* GNUC optional Variadic macro (##__VA_ARGS__) */
-  #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,##__VA_ARGS__)
+  #define LOG_TEXT(log,logtype,txt,...) LogC_AddEntry_Text(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,##__VA_ARGS__)
 #elif LOGC_OPTVARARG == 2 /* MS-Specific optional Variadic macro (Just __VA_ARGS__) */
-  #define LOG_TEXT(log,logtype,txt,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,__VA_ARGS__)
+  #define LOG_TEXT(log,logtype,txt,...) LogC_AddEntry_Text(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,txt,__VA_ARGS__)
 #else /* No optional varArgs available */
-  #define LOG_TEXT(log,logtype,...) iLogC_AddEntry_Text_g(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,__VA_ARGS__)
+  #define LOG_TEXT(log,logtype,...) LogC_AddEntry_Text(log,logtype,__FILE__,__LINE__,LOGC_FUNCTIONNAME,__VA_ARGS__)
 #endif /* LOGC_OPTVARARG */
 
 /**
@@ -155,7 +163,7 @@ extern int iLogC_AddEntry_Text_g(TagLog *ptagLog,
  *
  * @return 0 on success, negative value on Error.
  */
-extern int iLogC_End_g(TagLog *ptagLog);
+extern int LogC_End(TagLog *ptagLog);
 
 /**
  * Changes prefix options of the Log-Object after creating it.
@@ -165,8 +173,8 @@ extern int iLogC_End_g(TagLog *ptagLog);
  *                New Options for the Prefix, @see enum ELogOptions,
  *                just use LOGC_OPTION_PREFIX_XXX Options.
  */
-extern int iLogC_SetPrefixOptions_g(TagLog *ptagLog,
-                                    unsigned int uiNewPrefixOptions);
+extern int LogC_SetPrefixOptions(TagLog *ptagLog,
+                                 unsigned int uiNewPrefixOptions);
 
 #ifdef LOGC_FEATURE_ENABLE_LOGFILE
 /**
@@ -179,7 +187,7 @@ extern int iLogC_SetPrefixOptions_g(TagLog *ptagLog,
  *
  * @return 0 on success, negative value on Error.
  */
-extern int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog);
+extern int LogC_WriteEntriesToDisk(TagLog *ptagLog);
 
 /**
  * This Function is just available if LOGC_FEATURE_ENABLE_LOGFILE is defined.
@@ -192,8 +200,8 @@ extern int iLogC_WriteEntriesToDisk_g(TagLog *ptagLog);
  *
  * @return 0 on success, negative value on Error.
  */
-extern int iLogC_SetFilePath_g(TagLog *ptagLog,
-                               const char *pcNewPath);
+extern int LogC_SetFilePath(TagLog *ptagLog,
+                            const char *pcNewPath);
 #endif /* LOGC_FEATURE_ENABLE_LOGFILE */
 
 #ifdef LOGC_FEATURE_ENABLE_LOG_STORAGE
@@ -208,8 +216,9 @@ extern int iLogC_SetFilePath_g(TagLog *ptagLog,
  *
  * @return The Next Log-Entry, or NULL if not available.
  */
-extern char *pcLogC_StorageGetNextLog_g(TagLog *ptagLog,
-                                        size_t *pszEntryLength);
+extern char *LogC_StorageGetNextLog(TagLog *ptagLog,
+                                    size_t *pszEntryLength);
 #endif /* LOGC_FEATURE_ENABLE_LOG_STORAGE */
 
 #endif /* LOGC_H_INCLUDED */
+
