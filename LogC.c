@@ -30,7 +30,7 @@
     #define LOGC_MUTEX_DESTROY(log) do{ if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) DeleteCriticalSection(&(log)->tMutex);     }while(0)
     #define LOGC_MUTEX_LOCK(log)    do{ if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) EnterCriticalSection(&(log)->tMutex);      }while(0)
     #define LOGC_MUTEX_UNLOCK(log)  do{ if(((log)->uiLogOptions&LOGC_OPTION_THREADSAFE)) LeaveCriticalSection(&(log)->tMutex);      }while(0)
-  #endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */
+  #endif /* LOGC_FEATURE_ENABLE_THREADSAFETY */ffff
 //  #if (_WIN32_WINNT >= 0x602) /* Check if Windows 8 or newer */
 //    #define GET_SYSTIME_AS_FILETIME(pFileTime) GetSystemTimePreciseAsFileTime(pFileTime)
 //  #else
