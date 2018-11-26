@@ -1,7 +1,3 @@
-
-
-
-
 #ifndef LOGC_H_INCLUDED
   #define LOGC_H_INCLUDED
 
